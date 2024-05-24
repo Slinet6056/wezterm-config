@@ -10,7 +10,8 @@ return {
    webgpu_preferred_adapter = gpu_adapters:pick_best(),
 
    -- color scheme
-   colors = colors,
+   -- colors = colors,
+   color_scheme = 'Catppuccin Macchiato',
 
    -- background
    background = {
@@ -27,7 +28,7 @@ return {
    },
 
    -- scrollbar
-   enable_scroll_bar = true,
+   enable_scroll_bar = false,
 
    -- tab bar
    enable_tab_bar = true,
@@ -40,7 +41,7 @@ return {
    -- window
    window_padding = {
       left = 5,
-      right = 10,
+      right = 5,
       top = 12,
       bottom = 7,
    },
@@ -54,4 +55,6 @@ return {
       saturation = 0.9,
       brightness = 0.65,
    },
+   initial_rows = 30,
+   initial_cols = 120,
 }

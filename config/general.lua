@@ -5,6 +5,7 @@ return {
    exit_behavior_messaging = 'Verbose',
    status_update_interval = 1000,
 
+   enable_wayland = true,
    scrollback_lines = 5000,
 
    hyperlink_rules = {
