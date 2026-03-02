@@ -76,11 +76,6 @@ local GLYPH_UNSEEN_NUMBERED_CIRCLE = {
     [10] = nf.md_numeric_9_plus_circle, --[[ 󰲲 ]]
 }
 
-local TITLE_INSET = {
-    DEFAULT = 6,
-    ICON = 8,
-}
-
 local RENDER_VARIANTS = {
     { 'scircle_left', 'title', 'padding',       'scircle_right' },
     { 'scircle_left', 'title', 'unseen_output', 'padding',       'scircle_right' },
@@ -118,39 +113,57 @@ local function clean_process_name(proc)
     return a:gsub('%.exe$', '')
 end
 
----@param process_name string
 ---@param base_title string
----@param max_width number
----@param inset number
-local function create_title(process_name, base_title, max_width, inset)
-    local title
-
-    if process_name:len() > 0 then
-        -- title = process_name .. ' ~ ' .. base_title
-        title = base_title
-    else
-        title = base_title
-    end
+local function create_title(base_title, max_title_width)
+    local title = base_title
 
     if base_title == 'Debug' then
         title = GLYPH_DEBUG .. ' DEBUG'
-        inset = inset - 2
     end
 
     if base_title:match('^InputSelector:') ~= nil then
         title = base_title:gsub('InputSelector:', GLYPH_SEARCH)
-        inset = inset - 2
     end
 
-    if title:len() > max_width - inset then
-        local diff = title:len() - max_width + inset
-        title = title:sub(1, title:len() - diff)
-    else
-        local padding = max_width - title:len() - inset
-        title = title .. string.rep(' ', padding)
+    if max_title_width <= 0 then
+        return ''
+    end
+
+    if wezterm.column_width(title) > max_title_width then
+        return wezterm.truncate_right(title, max_title_width)
     end
 
     return title
+end
+
+local function get_unseen_output_icon(event_opts, unseen_output_count)
+    if event_opts.unseen_icon == 'numbered_box' then
+        return GLYPH_UNSEEN_NUMBERED_BOX[unseen_output_count]
+    end
+    if event_opts.unseen_icon == 'numbered_circle' then
+        return GLYPH_UNSEEN_NUMBERED_CIRCLE[unseen_output_count]
+    end
+    return GLYPH_CIRCLE
+end
+
+local function get_reserved_width(event_opts, is_admin, is_wsl, unseen_output, unseen_output_count)
+    local reserved_width = wezterm.column_width(GLYPH_SCIRCLE_LEFT)
+        + wezterm.column_width(' ')
+        + wezterm.column_width(' ')
+        + wezterm.column_width(GLYPH_SCIRCLE_RIGHT)
+
+    if is_wsl then
+        reserved_width = reserved_width + wezterm.column_width(' ' .. GLYPH_LINUX)
+    elseif is_admin then
+        reserved_width = reserved_width + wezterm.column_width(' ' .. GLYPH_ADMIN)
+    end
+
+    if unseen_output then
+        reserved_width = reserved_width
+            + wezterm.column_width(' ' .. get_unseen_output_icon(event_opts, unseen_output_count))
+    end
+
+    return reserved_width
 end
 
 ---@param panes any[] WezTerm https://wezfurlong.org/wezterm/config/lua/pane/index.html
@@ -221,16 +234,20 @@ function Tab:set_info(event_opts, tab, max_width)
         self.unseen_output, self.unseen_output_count = check_unseen_output(tab.panes)
     end
 
-    local inset = (self.is_admin or self.is_wsl) and TITLE_INSET.ICON or TITLE_INSET.DEFAULT
-    if self.unseen_output then
-        inset = inset + 2
-    end
+    local reserved_width = get_reserved_width(
+        event_opts,
+        self.is_admin,
+        self.is_wsl,
+        self.unseen_output,
+        self.unseen_output_count
+    )
+    local max_title_width = math.max(max_width - reserved_width, 0)
 
     if self.title_locked then
-        self.title = create_title('', self.locked_title, max_width, inset)
+        self.title = create_title(self.locked_title, max_title_width)
         return
     end
-    self.title = create_title(process_name, tab.active_pane.title, max_width, inset)
+    self.title = create_title(tab.active_pane.title, max_title_width)
 end
 
 function Tab:create_cells()
@@ -264,16 +281,10 @@ function Tab:update_cells(event_opts, is_active, hover)
 
     self.cells:update_segment_text('title', ' ' .. self.title)
 
-    if event_opts.unseen_icon == 'numbered_box' and self.unseen_output then
+    if self.unseen_output then
         self.cells:update_segment_text(
             'unseen_output',
-            ' ' .. GLYPH_UNSEEN_NUMBERED_BOX[self.unseen_output_count]
-        )
-    end
-    if event_opts.unseen_icon == 'numbered_circle' and self.unseen_output then
-        self.cells:update_segment_text(
-            'unseen_output',
-            ' ' .. GLYPH_UNSEEN_NUMBERED_CIRCLE[self.unseen_output_count]
+            ' ' .. get_unseen_output_icon(event_opts, self.unseen_output_count)
         )
     end
 
